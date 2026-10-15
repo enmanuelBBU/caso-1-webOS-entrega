@@ -1,0 +1,18 @@
+{
+  "info": {
+    "name": "StockFlow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" }
+  ],
+  "item": [
+    {
+      "name": "Hola",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/hola"
+      }
+    }
+  ]
+}
