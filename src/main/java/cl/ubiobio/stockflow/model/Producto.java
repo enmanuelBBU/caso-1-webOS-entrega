@@ -56,4 +56,23 @@ public class Producto {
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime fechaActualizacion;
+
+    public boolean tieneStock(int cantidad) {
+        return stockActual >= cantidad;
+    }
+
+    public boolean bajoStockMinimo() {
+        return stockActual < stockMinimo;
+    }
+
+    public void descontarStock(int cantidad) {
+        if (!tieneStock(cantidad)) {
+            throw new IllegalStateException("Stock insuficiente para el producto " + sku);
+        }
+        stockActual -= cantidad;
+    }
+
+    public void reponerStock(int cantidad) {
+        stockActual += cantidad;
+    }
 }

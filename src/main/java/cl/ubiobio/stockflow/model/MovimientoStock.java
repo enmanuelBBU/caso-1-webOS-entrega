@@ -53,4 +53,13 @@ public class MovimientoStock {
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime fecha;
+
+    public MovimientoStock(Producto producto, TipoMovimiento tipo, int cantidad, Pedido pedido, String motivo) {
+        this.producto = producto;
+        this.tipo = tipo;
+        this.cantidad = cantidad;
+        this.pedido = pedido;
+        this.motivo = motivo;
+        this.stockResultante = producto.getStockActual();
+    }
 }
