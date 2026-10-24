@@ -57,4 +57,14 @@ public class Pedido {
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime fechaActualizacion;
+
+    public Pedido(Cliente cliente) {
+        this.cliente = cliente;
+    }
+
+    public void agregarDetalle(Producto producto, int cantidad) {
+        DetallePedido detalle = new DetallePedido(this, producto, cantidad);
+        detalles.add(detalle);
+        total += detalle.getSubtotal();
+    }
 }

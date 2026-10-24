@@ -40,4 +40,12 @@ public class DetallePedido {
 
     @Column(nullable = false)
     private Long subtotal;
+
+    public DetallePedido(Pedido pedido, Producto producto, int cantidad) {
+        this.pedido = pedido;
+        this.producto = producto;
+        this.cantidad = cantidad;
+        this.precioUnitario = producto.getPrecio();
+        this.subtotal = producto.getPrecio() * cantidad;
+    }
 }
