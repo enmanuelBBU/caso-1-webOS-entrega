@@ -1,18 +1,611 @@
 {
   "info": {
-    "name": "StockFlow",
+    "name": "StockFlow API",
+    "description": "Pruebas de los endpoints principales de StockFlow. Ejecutar en orden con el Collection Runner: cada carpeta usa las variables que guardan las anteriores.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8080" }
+    { "key": "baseUrl", "value": "http://localhost:8080/api" },
+    { "key": "clienteId", "value": "" },
+    { "key": "productoAId", "value": "" },
+    { "key": "productoBId", "value": "" },
+    { "key": "pedidoId", "value": "" },
+    { "key": "rut", "value": "" },
+    { "key": "email", "value": "" },
+    { "key": "sufijo", "value": "" },
+    { "key": "hoy", "value": "" }
   ],
   "item": [
     {
-      "name": "Hola",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/api/hola"
-      }
+      "name": "1. Clientes",
+      "item": [
+        {
+          "name": "Crear cliente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cuerpo = String(10000000 + Math.floor(Math.random() * 89999999));",
+                  "let suma = 0, factor = 2;",
+                  "for (let i = cuerpo.length - 1; i >= 0; i--) { suma += Number(cuerpo[i]) * factor; factor = factor === 7 ? 2 : factor + 1; }",
+                  "const resto = 11 - (suma % 11);",
+                  "const dv = resto === 11 ? '0' : resto === 10 ? 'K' : String(resto);",
+                  "pm.collectionVariables.set('rut', cuerpo + '-' + dv);",
+                  "pm.collectionVariables.set('email', 'cliente' + Date.now() + '@correo.cl');",
+                  "pm.collectionVariables.set('sufijo', String(Date.now()));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Incluye cabecera Location', () => pm.response.to.have.header('Location'));",
+                  "pm.collectionVariables.set('clienteId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rut\": \"{{rut}}\",\n  \"nombre\": \"Cliente de prueba\",\n  \"email\": \"{{email}}\",\n  \"telefono\": \"+56912345678\",\n  \"direccion\": \"Av. Collao 1202, Concepción\"\n}"
+            },
+            "url": "{{baseUrl}}/clientes"
+          }
+        },
+        {
+          "name": "Listar clientes filtrando por nombre",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Devuelve una página', () => pm.expect(pm.response.json()).to.have.property('contenido'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/clientes?nombre=prueba&pagina=0&tamano=10&orden=nombre,asc"
+          }
+        },
+        {
+          "name": "Obtener cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Es el cliente creado', () => pm.expect(pm.response.json().rut).to.eql(pm.collectionVariables.get('rut')));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/clientes/{{clienteId}}" }
+        },
+        {
+          "name": "Actualizar cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Nombre actualizado', () => pm.expect(pm.response.json().nombre).to.eql('Cliente de prueba actualizado'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rut\": \"{{rut}}\",\n  \"nombre\": \"Cliente de prueba actualizado\",\n  \"email\": \"{{email}}\",\n  \"telefono\": \"+56987654321\",\n  \"direccion\": \"Av. Brasil 1180, Chillán\"\n}"
+            },
+            "url": "{{baseUrl}}/clientes/{{clienteId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Productos",
+      "item": [
+        {
+          "name": "Crear producto A (stock 10, mínimo 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productoAId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"PRUEBA-A-{{sufijo}}\",\n  \"nombre\": \"Teclado de prueba\",\n  \"descripcion\": \"Producto creado por la colección de Postman\",\n  \"categoria\": \"Pruebas\",\n  \"precio\": 10000,\n  \"stockActual\": 10,\n  \"stockMinimo\": 2\n}"
+            },
+            "url": "{{baseUrl}}/productos"
+          }
+        },
+        {
+          "name": "Crear producto B (stock 3, mínimo 5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Queda bajo su stock mínimo', () => pm.expect(pm.response.json().bajoStockMinimo).to.be.true);",
+                  "pm.collectionVariables.set('productoBId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"PRUEBA-B-{{sufijo}}\",\n  \"nombre\": \"Monitor de prueba\",\n  \"descripcion\": \"Producto creado por la colección de Postman\",\n  \"categoria\": \"Pruebas\",\n  \"precio\": 50000,\n  \"stockActual\": 3,\n  \"stockMinimo\": 5\n}"
+            },
+            "url": "{{baseUrl}}/productos"
+          }
+        },
+        {
+          "name": "Listar productos con filtros",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Todos son de la categoría Pruebas', () => {",
+                  "    pm.response.json().contenido.forEach(p => pm.expect(p.categoria).to.eql('Pruebas'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/productos?categoria=Pruebas&precioMin=5000&precioMax=60000&orden=precio,desc"
+          }
+        },
+        {
+          "name": "Obtener producto A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/productos/{{productoAId}}" }
+        },
+        {
+          "name": "Actualizar producto A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('El stock no cambia con PUT', () => pm.expect(pm.response.json().stockActual).to.eql(10));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"PRUEBA-A-{{sufijo}}\",\n  \"nombre\": \"Teclado de prueba\",\n  \"descripcion\": \"Descripción actualizada\",\n  \"categoria\": \"Pruebas\",\n  \"precio\": 10000,\n  \"stockMinimo\": 3\n}"
+            },
+            "url": "{{baseUrl}}/productos/{{productoAId}}"
+          }
+        },
+        {
+          "name": "Productos bajo stock mínimo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Incluye el producto B', () => {",
+                  "    const ids = pm.response.json().map(p => p.id);",
+                  "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('productoBId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/productos/stock-bajo" }
+        }
+      ]
+    },
+    {
+      "name": "3. Flujo transaccional de pedidos",
+      "item": [
+        {
+          "name": "Registrar pedido con stock suficiente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+                  "const pedido = pm.response.json();",
+                  "pm.test('Queda en estado PENDIENTE', () => pm.expect(pedido.estado).to.eql('PENDIENTE'));",
+                  "pm.test('Total = 2 x 10000 + 1 x 50000', () => pm.expect(pedido.total).to.eql(70000));",
+                  "pm.collectionVariables.set('pedidoId', pedido.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"items\": [\n    { \"productoId\": {{productoAId}}, \"cantidad\": 2 },\n    { \"productoId\": {{productoBId}}, \"cantidad\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/pedidos"
+          }
+        },
+        {
+          "name": "Verificar stock descontado de A (8)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Stock de A = 8', () => pm.expect(pm.response.json().stockActual).to.eql(8));"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/productos/{{productoAId}}" }
+        },
+        {
+          "name": "Registrar pedido sin stock suficiente (se rechaza completo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 409 Conflict', () => pm.response.to.have.status(409));",
+                  "const faltantes = pm.response.json().detalles;",
+                  "pm.test('Informa solo el producto B como faltante', () => {",
+                  "    pm.expect(faltantes).to.have.lengthOf(1);",
+                  "    pm.expect(faltantes[0].productoId).to.eql(Number(pm.collectionVariables.get('productoBId')));",
+                  "    pm.expect(faltantes[0].disponible).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": {{clienteId}},\n  \"items\": [\n    { \"productoId\": {{productoAId}}, \"cantidad\": 2 },\n    { \"productoId\": {{productoBId}}, \"cantidad\": 10 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/pedidos"
+          }
+        },
+        {
+          "name": "Verificar que A no se descontó tras el rechazo (8)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Stock de A sigue en 8', () => pm.expect(pm.response.json().stockActual).to.eql(8));"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/productos/{{productoAId}}" }
+        },
+        {
+          "name": "Pedidos del cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tiene solo el pedido aceptado', () => pm.expect(pm.response.json()).to.have.lengthOf(1));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/clientes/{{clienteId}}/pedidos" }
+        },
+        {
+          "name": "Obtener pedido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Tiene 2 ítems', () => pm.expect(pm.response.json().detalles).to.have.lengthOf(2));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/pedidos/{{pedidoId}}" }
+        },
+        {
+          "name": "Listar pedidos pendientes del cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/pedidos?estado=PENDIENTE&clienteId={{clienteId}}"
+          }
+        },
+        {
+          "name": "Cancelar pedido (devuelve stock)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Queda CANCELADO', () => pm.expect(pm.response.json().estado).to.eql('CANCELADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"estado\": \"CANCELADO\"\n}" },
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/estado"
+          }
+        },
+        {
+          "name": "Verificar stock devuelto a A (10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Stock de A vuelve a 10', () => pm.expect(pm.response.json().stockActual).to.eql(10));"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/productos/{{productoAId}}" }
+        },
+        {
+          "name": "Transición de estado inválida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 409 Conflict', () => pm.response.to.have.status(409));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"estado\": \"CONFIRMADO\"\n}" },
+            "url": "{{baseUrl}}/pedidos/{{pedidoId}}/estado"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Inventario y reportes",
+      "item": [
+        {
+          "name": "Reponer stock de B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Stock de B = 8', () => pm.expect(pm.response.json().stockActual).to.eql(8));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 5,\n  \"motivo\": \"Compra a proveedor\"\n}"
+            },
+            "url": "{{baseUrl}}/productos/{{productoBId}}/stock"
+          }
+        },
+        {
+          "name": "Movimientos de stock de A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Registra entrada inicial, venta y devolución', () => {",
+                  "    const tipos = pm.response.json().map(m => m.tipo);",
+                  "    pm.expect(tipos).to.include.members(['ENTRADA', 'SALIDA']);",
+                  "    pm.expect(tipos).to.have.lengthOf(3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/productos/{{productoAId}}/movimientos" }
+        },
+        {
+          "name": "Reporte de ventas del día",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date();",
+                  "const hoy = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');",
+                  "pm.collectionVariables.set('hoy', hoy);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Incluye los totales', () => pm.expect(pm.response.json()).to.include.keys('cantidadPedidos', 'unidadesVendidas', 'montoTotal'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reportes/ventas?desde={{hoy}}&hasta={{hoy}}"
+          }
+        },
+        {
+          "name": "Eliminar producto B (borrado lógico por tener historial)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/productos/{{productoBId}}" }
+        },
+        {
+          "name": "Verificar que B quedó inactivo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('activo = false', () => pm.expect(pm.response.json().activo).to.be.false);"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/productos/{{productoBId}}" }
+        }
+      ]
+    },
+    {
+      "name": "5. Validaciones y errores",
+      "item": [
+        {
+          "name": "Crear producto con datos inválidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Detalla los campos inválidos', () => pm.expect(pm.response.json().detalles).to.include.keys('sku', 'precio'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"\",\n  \"nombre\": \"Producto inválido\",\n  \"categoria\": \"Pruebas\",\n  \"precio\": -100,\n  \"stockActual\": 1,\n  \"stockMinimo\": 0\n}"
+            },
+            "url": "{{baseUrl}}/productos"
+          }
+        },
+        {
+          "name": "Pedido para cliente inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 404', () => pm.response.to.have.status(404));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": 999999,\n  \"items\": [\n    { \"productoId\": {{productoAId}}, \"cantidad\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/pedidos"
+          }
+        },
+        {
+          "name": "Eliminar cliente con pedidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('Responde 409', () => pm.response.to.have.status(409));"]
+              }
+            }
+          ],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/clientes/{{clienteId}}" }
+        }
+      ]
     }
   ]
 }
